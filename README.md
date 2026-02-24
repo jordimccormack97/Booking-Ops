@@ -24,3 +24,4 @@ Modeling is the first vertical. The architecture is intentionally general so it 
 
 ## Roadmap
 See `docs/roadmap.md`.
+CI trigger
