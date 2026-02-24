@@ -1,4 +1,5 @@
 import { startServer } from "../src/index";
+import { createInMemoryBookingRepository } from "../src/bookings-repository";
 
 const port = 3011;
 const url = `http://127.0.0.1:${port}/bookings`;
@@ -32,7 +33,7 @@ const missingRateBooking = {
   end_time: "2026-02-24T10:00:00Z",
 };
 
-const server = startServer(port);
+const server = startServer(port, createInMemoryBookingRepository());
 
 try {
   const invalidStatusRes = await fetch(url, {

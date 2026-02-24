@@ -1,9 +1,10 @@
 import { startServer } from "../src/index";
+import { createInMemoryBookingRepository } from "../src/bookings-repository";
 
 const expected = { message: "Booking-Ops API running with Bun " };
 const port = 3010;
 const url = `http://127.0.0.1:${port}/`;
-const server = startServer(port);
+const server = startServer(port, createInMemoryBookingRepository());
 
 try {
   const res = await fetch(url);

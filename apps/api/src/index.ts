@@ -1,12 +1,9 @@
 import express from "express";
+import { BookingCreateSchema } from "../../../packages/shared/booking.schema";
 import {
-  type BookingCreate,
-  BookingCreateSchema,
-} from "../../../packages/shared/booking.schema";
-
-export const app = express();
-app.use(express.json());
-const bookings: BookingCreate[] = [];
+  type BookingRepository,
+  createSupabaseBookingRepositoryFromEnv,
+} from "./bookings-repository";
 
 function extractBookingFromEmail(emailText: string) {
   const match = (pattern: RegExp) => emailText.match(pattern)?.[1]?.trim();
@@ -37,49 +34,71 @@ function extractBookingFromEmail(emailText: string) {
   return { success: true as const, data: parsed.data };
 }
 
-app.get("/", (_req, res) => {
-  res.json({ message: "Booking-Ops API running with Bun " });
-});
+export function createApp(bookingRepository: BookingRepository) {
+  const app = express();
+  app.use(express.json());
 
-app.post("/bookings", (req, res) => {
-  const parsed = BookingCreateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({
-      error: "Invalid booking payload",
-      details: parsed.error.flatten(),
-    });
-  }
+  app.get("/", (_req, res) => {
+    res.json({ message: "Booking-Ops API running with Bun " });
+  });
 
-  bookings.push(parsed.data);
-  return res.status(201).json(parsed.data);
-});
+  app.post("/bookings", async (req, res) => {
+    const parsed = BookingCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Invalid booking payload",
+        details: parsed.error.flatten(),
+      });
+    }
 
-app.get("/bookings", (_req, res) => {
-  return res.json(bookings);
-});
+    try {
+      const booking = await bookingRepository.create(parsed.data);
+      return res.status(201).json(booking);
+    } catch (error) {
+      console.error("Failed to store booking", error);
+      return res.status(500).json({ error: "Failed to store booking" });
+    }
+  });
 
-app.post("/extract", (req, res) => {
-  const emailText = req.body?.emailText;
-  if (typeof emailText !== "string" || emailText.trim().length === 0) {
-    return res
-      .status(400)
-      .json({ error: "emailText is required and must be a non-empty string" });
-  }
+  app.get("/bookings", async (_req, res) => {
+    try {
+      const bookings = await bookingRepository.list();
+      return res.json(bookings);
+    } catch (error) {
+      console.error("Failed to load bookings", error);
+      return res.status(500).json({ error: "Failed to load bookings" });
+    }
+  });
 
-  const extracted = extractBookingFromEmail(emailText);
-  if (!extracted.success) {
-    return res.status(400).json({
-      error: "Could not extract required booking fields from email",
-      ...("missingFields" in extracted
-        ? { missingFields: extracted.missingFields }
-        : { details: extracted.details }),
-    });
-  }
+  app.post("/extract", (req, res) => {
+    const emailText = req.body?.emailText;
+    if (typeof emailText !== "string" || emailText.trim().length === 0) {
+      return res
+        .status(400)
+        .json({ error: "emailText is required and must be a non-empty string" });
+    }
 
-  return res.json(extracted.data);
-});
+    const extracted = extractBookingFromEmail(emailText);
+    if (!extracted.success) {
+      return res.status(400).json({
+        error: "Could not extract required booking fields from email",
+        ...("missingFields" in extracted
+          ? { missingFields: extracted.missingFields }
+          : { details: extracted.details }),
+      });
+    }
 
-export function startServer(port = Number(process.env.PORT ?? 3000)) {
+    return res.json(extracted.data);
+  });
+
+  return app;
+}
+
+export function startServer(
+  port = Number(process.env.PORT ?? 3000),
+  bookingRepository: BookingRepository = createSupabaseBookingRepositoryFromEnv(),
+) {
+  const app = createApp(bookingRepository);
   return app.listen(port, () => {
     console.log(`API listening on port ${port}`);
   });
