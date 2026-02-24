@@ -1,0 +1,9 @@
+# Paste booking email text below this line
+# Expected parser labels (case-insensitive):
+# Client Name: ...
+# Status: INQUIRY|HOLD|CONFIRMED|CANCELED
+# Start Time: 2026-02-24T09:00:00Z
+# End Time: 2026-02-24T10:00:00Z
+# Rate: 1200
+
+Paste the full booking email here.
