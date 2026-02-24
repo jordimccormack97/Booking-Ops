@@ -1,5 +1,6 @@
 import { startServer } from "../src/index";
 import { BookingCreateSchema } from "../../../packages/shared/booking.schema";
+import { createInMemoryBookingRepository } from "../src/bookings-repository";
 
 const port = 3012;
 const url = `http://127.0.0.1:${port}/extract`;
@@ -17,7 +18,7 @@ Start Time: 2026-02-24T09:00:00Z
 End Time: 2026-02-24T10:00:00Z
 Rate: 1500`;
 
-const server = startServer(port);
+const server = startServer(port, createInMemoryBookingRepository());
 
 try {
   const res = await fetch(url, {
