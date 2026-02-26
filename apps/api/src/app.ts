@@ -2,6 +2,7 @@ import express from "express";
 import { BookingsRepository } from "./db/bookings-repository";
 import { initDatabase } from "./db/sqlite";
 import { log } from "./lib/logger";
+import { createAgentRouter } from "./routes/agent";
 import { createBookingsRouter } from "./routes/bookings";
 import { createEmailRouter } from "./routes/email";
 import { AgentService } from "./services/agentService";
@@ -28,6 +29,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use("/bookings", createBookingsRouter(bookingsRepository));
   app.use("/email", createEmailRouter(agentService));
+  app.use("/agent", createAgentRouter(agentService));
 
   log("info", "api.app.ready");
   return app;
