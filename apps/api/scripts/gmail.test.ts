@@ -1,5 +1,5 @@
 import { startServer } from "../src/index";
-import type { AgentService } from "../src/services/agentService";
+import type { AgentService } from "../src/services/agent.service";
 
 const port = 3013;
 const baseUrl = `http://127.0.0.1:${port}`;
