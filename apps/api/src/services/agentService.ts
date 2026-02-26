@@ -45,6 +45,15 @@ export class AgentService {
     );
   }
 
+  /** Sends confirmation email back to the agency. */
+  async sendAgencyConfirmation(agencyEmail: string) {
+    await this.getGmailService().sendEmail(
+      agencyEmail,
+      "Booking Confirmation",
+      "I confirm my availability for this booking.",
+    );
+  }
+
   /** Runs workflow on latest unread test booking email. */
   async ingestLatestUnreadTestEmail() {
     log("info", "agent.ingest.start");
@@ -96,5 +105,20 @@ export class AgentService {
     });
 
     return { ok: true as const, booking: updatedBooking, conflict: hasConflict };
+  }
+
+  /** Approves a booking by token and confirms it on the primary calendar. */
+  async approveBooking(approvalToken: string) {
+    log("info", "agent.approve.start", { approvalToken });
+    const booking = this.bookingsRepository.getByApprovalToken(approvalToken);
+    if (!booking) {
+      throw new Error("Booking not found for approval token");
+    }
+
+    const eventId = await this.getCalendarService().confirmEvent(booking);
+    const updated = this.bookingsRepository.updateStatus(booking.id, "confirmed", eventId);
+    await this.sendAgencyConfirmation(updated.agencyEmail);
+    log("info", "agent.approve.completed", { bookingId: updated.id, calendarEventId: eventId });
+    return updated;
   }
 }
