@@ -115,6 +115,14 @@ export class AgentService {
       throw new Error("Booking not found for approval token");
     }
 
+    if (booking.status === "confirmed") {
+      log("info", "agent.approve.idempotent", {
+        bookingId: booking.id,
+        approvalToken,
+      });
+      return booking;
+    }
+
     const eventId = await this.getCalendarService().confirmEvent(booking);
     const updated = this.bookingsRepository.updateStatus(booking.id, "confirmed", eventId);
     await this.sendAgencyConfirmation(updated.agencyEmail);

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "worker:approval": "bun src/workers/emailApprovalWatcher.ts",
     "test:smoke": "bun scripts/smoke.ts",
     "test:bookings": "bun scripts/bookings.test.ts",
     "test:extract": "bun scripts/extract.test.ts",

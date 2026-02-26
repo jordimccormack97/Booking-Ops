@@ -67,6 +67,22 @@ flowchart TD
 5. `/agent/approve` with that token sets `status=confirmed`, confirms event on primary calendar, and emails the agency:
    `I confirm my availability for this booking.`
 
+## Autonomous Agent Architecture
+
+The backend includes a background worker at `src/workers/emailApprovalWatcher.ts`:
+
+1. Polls Gmail every `APPROVAL_WATCHER_POLL_MINUTES`.
+2. Reads unread approval-reply emails using `APPROVAL_WATCHER_QUERY`.
+3. Detects positive approval replies containing `YES`.
+4. Extracts `approvalToken` from email body.
+5. Calls `AgentService.approveBooking(approvalToken)`.
+
+Reliability design:
+- Idempotent approval: already-confirmed bookings return without duplicate confirmation side effects.
+- Duplicate email safety: processed replies are marked as read.
+- Overlap protection: worker skips concurrent poll execution with an in-process run lock.
+- Structured logs: each poll and message decision is logged with stable event keys.
+
 ## Environment
 
 Use `.env` with keys listed in `.env.example`.
