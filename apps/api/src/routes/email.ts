@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { log } from "../lib/logger";
-import { AgentService } from "../services/agentService";
+import { AgentService } from "../services/agent.service";
 
 /**
  * Creates routes for triggering email ingestion.
@@ -10,7 +10,7 @@ export function createEmailRouter(agentService: AgentService) {
 
   router.post("/ingest-test", async (_req, res) => {
     try {
-      const result = await agentService.ingestLatestUnreadTestEmail();
+      const result = await agentService.ingestTestBookingEmail();
       if (!result.ok) return res.status(400).json(result);
       return res.json(result);
     } catch (error) {

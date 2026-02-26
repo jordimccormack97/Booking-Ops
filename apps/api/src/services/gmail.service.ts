@@ -39,14 +39,13 @@ function parseEmailAddress(raw: string): string | null {
   return match ? match[0] : null;
 }
 
-function toGmailMessage(message: gmail_v1.Schema$Message): GmailMessage {
+function toMessage(message: gmail_v1.Schema$Message): GmailMessage {
   const payload = message.payload;
   const textPart = findTextPart(payload);
   const plainText = textPart?.body?.data
     ? decodeBase64Url(textPart.body.data)
     : decodeBase64Url(payload?.body?.data);
   const headers = payload?.headers ?? [];
-
   return {
     id: message.id ?? "",
     subject: headerValue(headers, "subject"),
@@ -56,46 +55,30 @@ function toGmailMessage(message: gmail_v1.Schema$Message): GmailMessage {
 }
 
 /**
- * Provides Gmail read/send helpers for the booking workflow.
+ * Gmail API service for reading booking requests/replies and sending workflow emails.
  */
-export class GmailService {
+export class GmailApiService {
   private readonly gmail: gmail_v1.Gmail;
 
   constructor() {
     this.gmail = google.gmail({ version: "v1", auth: createGoogleOAuthClientFromEnv() });
   }
 
-  /** Fetches the latest unread booking test email using a configurable query. */
+  /** Fetches the latest unread booking test email. */
   async fetchLatestUnreadBookingTestEmail(): Promise<GmailMessage | null> {
     const query = optionalEnv("BOOKING_TEST_EMAIL_QUERY", "is:unread subject:(booking request)");
-    log("info", "gmail.fetch.start", { query });
-
-    const list = await this.gmail.users.messages.list({
-      userId: "me",
-      q: query,
-      maxResults: 1,
-    });
+    const list = await this.gmail.users.messages.list({ userId: "me", q: query, maxResults: 1 });
     const messageId = list.data.messages?.[0]?.id;
-    if (!messageId) {
-      log("info", "gmail.fetch.none");
-      return null;
-    }
+    if (!messageId) return null;
 
-    const message = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
-    const parsed = toGmailMessage(message.data);
-
-    log("info", "gmail.fetch.success", { messageId, subject: parsed.subject, fromEmail: parsed.fromEmail });
-    return parsed;
+    const detail = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
+    log("info", "[INGEST] gmail_message_fetched", { messageId });
+    return toMessage(detail.data);
   }
 
-  /** Fetches unread messages by Gmail query for worker-style processing. */
+  /** Fetches unread messages matching a custom query. */
   async fetchUnreadMessages(query: string, maxResults = 10): Promise<GmailMessage[]> {
-    log("info", "gmail.fetch_many.start", { query, maxResults });
-    const list = await this.gmail.users.messages.list({
-      userId: "me",
-      q: query,
-      maxResults,
-    });
+    const list = await this.gmail.users.messages.list({ userId: "me", q: query, maxResults });
     const ids = (list.data.messages ?? [])
       .map((message) => message.id)
       .filter((id): id is string => Boolean(id));
@@ -103,23 +86,21 @@ export class GmailService {
     const messages: GmailMessage[] = [];
     for (const id of ids) {
       const detail = await this.gmail.users.messages.get({ userId: "me", id, format: "full" });
-      messages.push(toGmailMessage(detail.data));
+      messages.push(toMessage(detail.data));
     }
-    log("info", "gmail.fetch_many.success", { count: messages.length });
     return messages;
   }
 
-  /** Marks a Gmail message as read by removing the UNREAD label. */
+  /** Marks a message as read. */
   async markAsRead(messageId: string) {
     await this.gmail.users.messages.modify({
       userId: "me",
       id: messageId,
       requestBody: { removeLabelIds: ["UNREAD"] },
     });
-    log("info", "gmail.mark_read.success", { messageId });
   }
 
-  /** Sends a plain text email from the authenticated mailbox. */
+  /** Sends plain-text email. */
   async sendEmail(to: string, subject: string, body: string) {
     const raw = Buffer.from(
       `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${body}`,
@@ -129,10 +110,6 @@ export class GmailService {
       .replace(/\//g, "_")
       .replace(/=+$/, "");
 
-    await this.gmail.users.messages.send({
-      userId: "me",
-      requestBody: { raw },
-    });
-    log("info", "gmail.send.success", { to, subject });
+    await this.gmail.users.messages.send({ userId: "me", requestBody: { raw } });
   }
 }
