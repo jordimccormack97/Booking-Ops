@@ -7,15 +7,16 @@
     "start": "bun src/index.ts",
     "test:smoke": "bun scripts/smoke.ts",
     "test:bookings": "bun scripts/bookings.test.ts",
-    "test:extract": "bun scripts/extract.test.ts"
+    "test:extract": "bun scripts/extract.test.ts",
+    "test:gmail": "bun scripts/gmail.test.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.97.0",
     "express": "^5.2.1",
+    "googleapis": "^171.4.0",
     "zod": "^4.3.6"
   }
 }

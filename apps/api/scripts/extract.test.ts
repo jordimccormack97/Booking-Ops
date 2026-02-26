@@ -1,9 +1,8 @@
 import { startServer } from "../src/index";
-import { BookingCreateSchema } from "../../../packages/shared/booking.schema";
-import { createInMemoryBookingRepository } from "../src/bookings-repository";
+import type { AgentService } from "../src/services/agentService";
 
 const port = 3012;
-const url = `http://127.0.0.1:${port}/extract`;
+const url = `http://127.0.0.1:${port}/email/ingest-test`;
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -11,26 +10,39 @@ function assert(condition: unknown, message: string): void {
   }
 }
 
-const sampleEmail = `Subject: New Booking Request
-Client Name: Acme Corp
-Status: CONFIRMED
-Start Time: 2026-02-24T09:00:00Z
-End Time: 2026-02-24T10:00:00Z
-Rate: 1500`;
+const fakeAgentService = {
+  async ingestLatestUnreadTestEmail() {
+    return {
+      ok: true as const,
+      booking: {
+        id: "1",
+        title: "Booking Request",
+        startAt: "2026-02-24T09:00:00.000Z",
+        endAt: "2026-02-24T10:00:00.000Z",
+        location: "Studio A",
+        rateQuoted: 1500,
+        agencyEmail: "agency@example.com",
+        status: "hold",
+        approvalToken: "token-123",
+        calendarEventId: "evt_1",
+        createdAt: new Date().toISOString(),
+      },
+      conflict: false,
+    };
+  },
+} as unknown as AgentService;
 
-const server = startServer(port, createInMemoryBookingRepository());
+const server = startServer(port, { agentService: fakeAgentService });
 
 try {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ emailText: sampleEmail }),
   });
 
   assert(res.status === 200, `Expected 200, got ${res.status}`);
   const body = await res.json();
-  const parsed = BookingCreateSchema.safeParse(body);
-  assert(parsed.success, "Response did not match BookingCreateSchema");
+  assert(body?.ok === true, "Expected ok response");
+  assert(body?.booking?.approvalToken === "token-123", "Expected booking payload");
 
   console.log("Extract test passed");
 } finally {
