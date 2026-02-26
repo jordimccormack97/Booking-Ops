@@ -49,6 +49,15 @@ export class AgentService {
     log("info", "[APPROVAL_SENT] owner_email_dispatched", { bookingId: booking.id });
   }
 
+  private async sendAgencyConfirmation(agencyEmail: string, bookingId: string) {
+    await this.getGmailService().sendEmail(
+      agencyEmail,
+      "Booking Confirmation",
+      "I confirm my availability for this booking.",
+    );
+    log("info", "[BOOKING_CONFIRMED] agency_email_dispatched", { bookingId, agencyEmail });
+  }
+
   /** Executes ingest workflow for the latest unread booking test email. */
   async ingestTestBookingEmail() {
     log("info", "[INGEST] started");
@@ -101,5 +110,29 @@ export class AgentService {
     });
 
     return { ok: true as const, booking, conflict: hasConflict };
+  }
+
+  /** Approves booking from hold state and confirms event on primary calendar. */
+  async approveBooking(approvalToken: string) {
+    const booking = this.bookingService.getByApprovalToken(approvalToken);
+    if (!booking) throw new Error("Booking not found for approval token");
+
+    if (booking.status === "confirmed") {
+      log("info", "[BOOKING_CONFIRMED] idempotent_return", {
+        bookingId: booking.id,
+        approvalToken,
+      });
+      return booking;
+    }
+
+    if (booking.status !== "hold") {
+      throw new Error("Booking is not in hold state");
+    }
+
+    const eventId = await this.getCalendarService().confirmEvent(booking);
+    const updated = this.bookingService.updateStatus(booking.id, "confirmed", eventId);
+    await this.sendAgencyConfirmation(updated.agencyEmail, updated.id);
+    log("info", "[BOOKING_CONFIRMED] completed", { bookingId: updated.id, calendarEventId: eventId });
+    return updated;
   }
 }

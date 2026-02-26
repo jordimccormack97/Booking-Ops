@@ -1,5 +1,5 @@
 import { startServer } from "../src/index";
-import type { AgentService } from "../src/services/agentService";
+import type { AgentService } from "../src/services/agent.service";
 
 const port = 3012;
 const url = `http://127.0.0.1:${port}/email/ingest-test`;
@@ -11,7 +11,7 @@ function assert(condition: unknown, message: string): void {
 }
 
 const fakeAgentService = {
-  async ingestLatestUnreadTestEmail() {
+  async ingestTestBookingEmail() {
     return {
       ok: true as const,
       booking: {

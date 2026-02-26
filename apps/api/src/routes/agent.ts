@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { log } from "../lib/logger";
-import { AgentService } from "../services/agentService";
+import { AgentService } from "../services/agent.service";
 
 /**
  * Creates routes for agent approval actions.
@@ -21,6 +21,9 @@ export function createAgentRouter(agentService: AgentService) {
       const message = error instanceof Error ? error.message : "Failed to approve booking";
       if (message.includes("not found")) {
         return res.status(404).json({ error: message });
+      }
+      if (message.includes("hold state")) {
+        return res.status(409).json({ error: message });
       }
       log("error", "route.agent.approve.failed", { error: message });
       return res.status(500).json({ error: "Failed to approve booking" });
