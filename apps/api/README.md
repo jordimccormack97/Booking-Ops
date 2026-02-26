@@ -72,6 +72,11 @@ stateDiagram-v2
    - `bun run test:extract`
    - `bun run test:gmail`
 
+## Secret Management
+
+Backend secrets are loaded strictly from environment variables (for example `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and Google OAuth keys).
+No secret files or credential values are committed to git.
+
 ## Logging Model
 
 Structured logs are emitted for major workflow stages:

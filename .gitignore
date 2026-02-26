@@ -67,6 +67,7 @@ web_modules/
 
 # dotenv environment variable files
 .env
+**/.env
 .env.*
 !.env.example
 
@@ -138,10 +139,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-.env
-
 credentials.json
 token.json
 apps/api/credentials.json
 apps/api/token.json
+**/token.json
+**/credentials*.json
 apps/api/data/

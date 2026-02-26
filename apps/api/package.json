@@ -16,6 +16,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
     "express": "^5.2.1",
     "googleapis": "^171.4.0",
     "zod": "^4.3.6"
