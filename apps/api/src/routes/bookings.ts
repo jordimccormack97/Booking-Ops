@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { BookingsRepository } from "../db/bookings-repository";
+import { BookingService } from "../services/booking.service";
 
 /**
  * Creates booking query routes.
  */
-export function createBookingsRouter(bookingsRepository: BookingsRepository) {
+export function createBookingsRouter(bookingService: BookingService) {
   const router = Router();
 
   router.get("/", (_req, res) => {
-    const bookings = bookingsRepository.list();
+    const bookings = bookingService.list();
     return res.json(bookings);
   });
 

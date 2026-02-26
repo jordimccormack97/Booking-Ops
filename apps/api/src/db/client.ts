@@ -7,9 +7,9 @@ import { log } from "../lib/logger";
 const MIGRATIONS_DIR = resolve(import.meta.dir, "migrations");
 
 /**
- * Initializes the SQLite database and applies SQL migrations.
+ * Initializes SQLite client and applies pending migrations.
  */
-export function initDatabase() {
+export function createDbClient() {
   const dbPath = optionalEnv("SQLITE_DB_PATH", "data/bookings.sqlite");
   const absolutePath = dbPath === ":memory:" ? dbPath : resolve(process.cwd(), dbPath);
   if (absolutePath !== ":memory:") {
@@ -26,15 +26,13 @@ export function initDatabase() {
     .sort();
 
   for (const fileName of migrationFiles) {
-    const alreadyApplied = db
-      .prepare("select 1 from _migrations where name = ?")
-      .get(fileName) as Record<string, unknown> | null;
-    if (alreadyApplied) continue;
+    const exists = db.prepare("select 1 from _migrations where name = ?").get(fileName);
+    if (exists) continue;
 
     const sql = readFileSync(resolve(MIGRATIONS_DIR, fileName), "utf8");
     db.exec(sql);
     db.prepare("insert into _migrations(name) values (?)").run(fileName);
-    log("info", "db.migration.applied", { fileName });
+    log("info", "[DB_MIGRATION] applied", { fileName });
   }
 
   return db;
