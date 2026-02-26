@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 .env
 
+apps/api/credentials.json
+apps/api/token.json
+apps/api/data/
