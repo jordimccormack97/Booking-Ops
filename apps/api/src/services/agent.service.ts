@@ -4,6 +4,7 @@ import { log } from "../lib/logger";
 import type { BookingRecord } from "../types/booking";
 import { parseBookingEmail } from "./bookingParser";
 import { BookingService } from "./booking.service";
+import { CalendarService } from "./calendar.service";
 import { GmailApiService } from "./gmail.service";
 
 /**
@@ -11,10 +12,12 @@ import { GmailApiService } from "./gmail.service";
  */
 export class AgentService {
   private gmailServiceInstance: GmailApiService | null = null;
+  private calendarServiceInstance: CalendarService | null = null;
 
   constructor(
     private readonly bookingService: BookingService,
     private readonly gmailServiceFactory: () => GmailApiService = () => new GmailApiService(),
+    private readonly calendarServiceFactory: () => CalendarService = () => new CalendarService(),
   ) {}
 
   private getGmailService() {
@@ -22,6 +25,13 @@ export class AgentService {
       this.gmailServiceInstance = this.gmailServiceFactory();
     }
     return this.gmailServiceInstance;
+  }
+
+  private getCalendarService() {
+    if (!this.calendarServiceInstance) {
+      this.calendarServiceInstance = this.calendarServiceFactory();
+    }
+    return this.calendarServiceInstance;
   }
 
   private async sendApprovalEmail(booking: BookingRecord, hasConflict: boolean) {
@@ -71,8 +81,17 @@ export class AgentService {
       calendarEventId: null,
     });
 
-    const booking = inquiry;
-    const hasConflict = false;
+    const calendarService = this.getCalendarService();
+    const hasConflict = await calendarService.checkCalendarConflicts(
+      inquiry.startAt,
+      inquiry.endAt,
+    );
+
+    let booking = inquiry;
+    if (!hasConflict) {
+      const holdEventId = await calendarService.createHoldEvent(inquiry);
+      booking = this.bookingService.updateStatus(inquiry.id, "hold", holdEventId);
+    }
     await this.sendApprovalEmail(booking, hasConflict);
     await gmailService.markAsRead(message.id);
     log("info", "[INGEST] completed", {
