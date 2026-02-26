@@ -1,9 +1,9 @@
-import { initDatabase } from "../db/sqlite";
-import { BookingsRepository } from "../db/bookings-repository";
+import { createDbClient } from "../db/client";
 import { optionalEnv } from "../lib/env";
 import { log } from "../lib/logger";
-import { AgentService } from "../services/agentService";
-import { GmailService } from "../services/gmailService";
+import { AgentService } from "../services/agent.service";
+import { BookingService } from "../services/booking.service";
+import { GmailApiService } from "../services/gmail.service";
 
 function extractApprovalToken(text: string): string | null {
   const labeled = text.match(/approval\s*token\s*:\s*([a-f0-9-]{8,})/im)?.[1];
@@ -27,9 +27,12 @@ export function startEmailApprovalWatcher() {
     "is:unread subject:(Booking Hold Created) newer_than:14d",
   );
 
-  const bookingsRepository = new BookingsRepository(initDatabase());
-  const gmailService = new GmailService();
-  const agentService = new AgentService(bookingsRepository);
+  const bookingService = new BookingService(createDbClient());
+  const gmailService = new GmailApiService();
+  const agentService = new AgentService(
+    bookingService,
+    () => gmailService,
+  );
 
   let isRunning = false;
   const run = async () => {
@@ -57,7 +60,7 @@ export function startEmailApprovalWatcher() {
             continue;
           }
 
-          const before = bookingsRepository.getByApprovalToken(approvalToken);
+          const before = bookingService.getByApprovalToken(approvalToken);
           const wasConfirmed = before?.status === "confirmed";
           const updated = await agentService.approveBooking(approvalToken);
           log("info", "worker.email_approval.message.approved", {
