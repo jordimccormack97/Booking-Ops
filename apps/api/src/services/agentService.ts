@@ -4,6 +4,7 @@ import { requireEnv } from "../lib/env";
 import { log } from "../lib/logger";
 import type { BookingRecord } from "../types/booking";
 import { parseBookingEmail } from "./bookingParser";
+import { CalendarService } from "./calendarService";
 import { GmailService } from "./gmailService";
 
 /**
@@ -11,15 +12,22 @@ import { GmailService } from "./gmailService";
  */
 export class AgentService {
   private gmailService: GmailService | null = null;
+  private calendarService: CalendarService | null = null;
 
   constructor(
     private readonly bookingsRepository: BookingsRepository,
     private readonly gmailServiceFactory: () => GmailService = () => new GmailService(),
+    private readonly calendarServiceFactory: () => CalendarService = () => new CalendarService(),
   ) {}
 
   private getGmailService() {
     if (!this.gmailService) this.gmailService = this.gmailServiceFactory();
     return this.gmailService;
+  }
+
+  private getCalendarService() {
+    if (!this.calendarService) this.calendarService = this.calendarServiceFactory();
+    return this.calendarService;
   }
 
   /** Sends owner approval email with conflict and token details. */
@@ -41,6 +49,7 @@ export class AgentService {
   async ingestLatestUnreadTestEmail() {
     log("info", "agent.ingest.start");
     const gmailService = this.getGmailService();
+    const calendarService = this.getCalendarService();
     const message = await gmailService.fetchLatestUnreadBookingTestEmail();
     if (!message) {
       return { ok: true as const, message: "No unread test booking email found" };
@@ -70,15 +79,22 @@ export class AgentService {
       calendarEventId: null,
     });
 
-    const hasConflict = false;
-    await this.sendApprovalEmail(booking, hasConflict);
+    const hasConflict = await calendarService.checkCalendarConflicts(booking.startAt, booking.endAt);
+
+    let updatedBooking = booking;
+    if (!hasConflict) {
+      const holdEventId = await calendarService.createHoldEvent(booking);
+      updatedBooking = this.bookingsRepository.updateStatus(booking.id, "hold", holdEventId);
+    }
+
+    await this.sendApprovalEmail(updatedBooking, hasConflict);
     await gmailService.markAsRead(message.id);
     log("info", "agent.ingest.completed", {
-      bookingId: booking.id,
-      status: booking.status,
+      bookingId: updatedBooking.id,
+      status: updatedBooking.status,
       conflict: hasConflict,
     });
 
-    return { ok: true as const, booking, conflict: hasConflict };
+    return { ok: true as const, booking: updatedBooking, conflict: hasConflict };
   }
 }
