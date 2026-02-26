@@ -1,4 +1,4 @@
-export type BookingStatus = "inquiry" | "hold" | "confirmed";
+export type BookingStatus = "inquiry" | "hold" | "confirmed" | "canceled";
 
 export type BookingRecord = {
   id: string;

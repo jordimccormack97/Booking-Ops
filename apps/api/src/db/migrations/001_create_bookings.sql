@@ -6,7 +6,7 @@ create table if not exists bookings (
   location text not null,
   rateQuoted real not null,
   agencyEmail text not null,
-  status text not null check (status in ('inquiry', 'hold', 'confirmed')),
+  status text not null check (status in ('inquiry', 'hold', 'confirmed', 'canceled')),
   approvalToken text not null unique,
   calendarEventId text,
   createdAt text not null default (datetime('now'))

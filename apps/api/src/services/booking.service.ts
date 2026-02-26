@@ -18,12 +18,12 @@ function toBooking(row: Record<string, unknown>): BookingRecord {
 }
 
 /**
- * Persists and queries booking workflow records from SQLite.
+ * Booking persistence service for SQLite.
  */
-export class BookingsRepository {
+export class BookingService {
   constructor(private readonly db: Database) {}
 
-  /** Inserts a booking row and returns the stored record. */
+  /** Creates a booking record. */
   create(input: CreateBookingInput): BookingRecord {
     this.db
       .prepare(
@@ -43,13 +43,12 @@ export class BookingsRepository {
         input.approvalToken,
         input.calendarEventId,
       );
-
-    const record = this.getById(input.id);
-    if (!record) throw new Error("Failed to load inserted booking");
-    return record;
+    const created = this.getById(input.id);
+    if (!created) throw new Error("Failed to load inserted booking");
+    return created;
   }
 
-  /** Returns all bookings ordered by creation time descending. */
+  /** Lists all bookings newest first. */
   list(): BookingRecord[] {
     const rows = this.db
       .prepare("select * from bookings order by datetime(createdAt) desc")
@@ -57,7 +56,7 @@ export class BookingsRepository {
     return rows.map(toBooking);
   }
 
-  /** Looks up a booking by primary id. */
+  /** Fetches booking by id. */
   getById(id: string): BookingRecord | null {
     const row = this.db.prepare("select * from bookings where id = ?").get(id) as
       | Record<string, unknown>
@@ -65,7 +64,7 @@ export class BookingsRepository {
     return row ? toBooking(row) : null;
   }
 
-  /** Looks up a booking by approval token. */
+  /** Fetches booking by approval token. */
   getByApprovalToken(token: string): BookingRecord | null {
     const row = this.db.prepare("select * from bookings where approvalToken = ?").get(token) as
       | Record<string, unknown>
@@ -73,13 +72,13 @@ export class BookingsRepository {
     return row ? toBooking(row) : null;
   }
 
-  /** Updates booking status and calendar event id. */
+  /** Updates status and optional calendar event id. */
   updateStatus(id: string, status: BookingStatus, calendarEventId: string | null): BookingRecord {
     this.db
       .prepare("update bookings set status = ?, calendarEventId = ? where id = ?")
       .run(status, calendarEventId, id);
-    const record = this.getById(id);
-    if (!record) throw new Error("Booking not found after status update");
-    return record;
+    const updated = this.getById(id);
+    if (!updated) throw new Error("Booking not found after update");
+    return updated;
   }
 }
