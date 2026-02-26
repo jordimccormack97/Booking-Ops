@@ -39,6 +39,22 @@ function parseEmailAddress(raw: string): string | null {
   return match ? match[0] : null;
 }
 
+function toGmailMessage(message: gmail_v1.Schema$Message): GmailMessage {
+  const payload = message.payload;
+  const textPart = findTextPart(payload);
+  const plainText = textPart?.body?.data
+    ? decodeBase64Url(textPart.body.data)
+    : decodeBase64Url(payload?.body?.data);
+  const headers = payload?.headers ?? [];
+
+  return {
+    id: message.id ?? "",
+    subject: headerValue(headers, "subject"),
+    fromEmail: parseEmailAddress(headerValue(headers, "from")),
+    plainText,
+  };
+}
+
 /**
  * Provides Gmail read/send helpers for the booking workflow.
  */
@@ -65,23 +81,32 @@ export class GmailService {
       return null;
     }
 
-    const message = await this.gmail.users.messages.get({
+    const message = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
+    const parsed = toGmailMessage(message.data);
+
+    log("info", "gmail.fetch.success", { messageId, subject: parsed.subject, fromEmail: parsed.fromEmail });
+    return parsed;
+  }
+
+  /** Fetches unread messages by Gmail query for worker-style processing. */
+  async fetchUnreadMessages(query: string, maxResults = 10): Promise<GmailMessage[]> {
+    log("info", "gmail.fetch_many.start", { query, maxResults });
+    const list = await this.gmail.users.messages.list({
       userId: "me",
-      id: messageId,
-      format: "full",
+      q: query,
+      maxResults,
     });
-    const payload = message.data.payload;
-    const textPart = findTextPart(payload);
-    const plainText = textPart?.body?.data
-      ? decodeBase64Url(textPart.body.data)
-      : decodeBase64Url(payload?.body?.data);
+    const ids = (list.data.messages ?? [])
+      .map((message) => message.id)
+      .filter((id): id is string => Boolean(id));
 
-    const headers = payload?.headers ?? [];
-    const subject = headerValue(headers, "subject");
-    const fromEmail = parseEmailAddress(headerValue(headers, "from"));
-
-    log("info", "gmail.fetch.success", { messageId, subject, fromEmail });
-    return { id: messageId, subject, fromEmail, plainText };
+    const messages: GmailMessage[] = [];
+    for (const id of ids) {
+      const detail = await this.gmail.users.messages.get({ userId: "me", id, format: "full" });
+      messages.push(toGmailMessage(detail.data));
+    }
+    log("info", "gmail.fetch_many.success", { count: messages.length });
+    return messages;
   }
 
   /** Marks a Gmail message as read by removing the UNREAD label. */
