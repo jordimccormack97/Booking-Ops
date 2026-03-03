@@ -16,3 +16,20 @@ export function optionalEnv(name: string, fallback: string): string {
   const value = process.env[name];
   return value && value.trim().length > 0 ? value : fallback;
 }
+
+/**
+ * Validates required environment variables and throws a single actionable error.
+ */
+export function validateRequiredEnvVars(names: string[]) {
+  const missing = names.filter((name) => {
+    const value = process.env[name];
+    return !value || value.trim().length === 0;
+  });
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required env vars: ${missing.join(", ")}. ` +
+        "Add them to apps/api/.env (see apps/api/.env.example).",
+    );
+  }
+}

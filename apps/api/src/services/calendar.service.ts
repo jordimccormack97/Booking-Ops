@@ -3,6 +3,35 @@ import { optionalEnv } from "../lib/env";
 import { createGoogleOAuthClientFromEnv } from "../lib/google-auth";
 import { log } from "../lib/logger";
 import type { BookingRecord } from "../types/booking";
+type CalendarEventWindow = {
+  startAtIso: string;
+  endAtIso: string;
+  timezone: string;
+};
+
+type CalendarAllDayWindow = {
+  allDayDate: string;
+  allDayEndDate: string;
+};
+
+type CalendarUpsertInput = {
+  extracted: {
+    messageId: string;
+    threadId: string | null;
+    subject: string | null;
+    title: string | null;
+    clientOrBrand: string | null;
+    eventDateText: string | null;
+    location: string | null;
+    rateQuoted: number | null;
+    rateType: string | null;
+    notes: string[];
+    googleEventId: string | null;
+  };
+  subject: string | null;
+  threadId: string | null;
+  eventWindow: CalendarEventWindow | CalendarAllDayWindow;
+};
 
 /**
  * Google Calendar API service for conflict checking and event lifecycle.
@@ -85,5 +114,64 @@ export class CalendarService {
     });
     if (!created.data.id) throw new Error("Failed to create confirmed primary event");
     return created.data.id;
+  }
+
+  /** Creates or updates a Booking Holds event using extracted DirectionsUSA message data. */
+  async upsertDirectionsUsaEvent(input: CalendarUpsertInput): Promise<{ eventId: string; action: "created" | "updated" }> {
+    const calendarId = await this.ensureBookingHoldsCalendar();
+    const eventTitle = input.extracted.title || input.subject || "Booking request";
+    const summary = input.extracted.clientOrBrand
+      ? `${input.extracted.clientOrBrand} - Booking Request`
+      : eventTitle;
+    const rateLine =
+      input.extracted.rateQuoted === null
+        ? "Rate: not provided"
+        : `Rate: $${input.extracted.rateQuoted}${input.extracted.rateType ? ` (${input.extracted.rateType})` : ""}`;
+
+    const descriptionLines = [
+      `Client/Brand: ${input.extracted.clientOrBrand ?? "Unknown"}`,
+      `Original Subject: ${input.subject ?? "Unknown"}`,
+      `Location: ${input.extracted.location ?? "TBD"}`,
+      `Event Date Text: ${input.extracted.eventDateText ?? "Unknown"}`,
+      rateLine,
+      `Notes: ${(input.extracted.notes ?? []).join(" | ") || "None"}`,
+      `sourceMessageId:${input.extracted.messageId}`,
+      `sourceThreadId:${input.threadId ?? input.extracted.threadId ?? "unknown"}`,
+    ];
+
+    const requestBody: calendar_v3.Schema$Event = {
+      summary,
+      location: input.extracted.location ?? "TBD",
+      description: descriptionLines.join("\n"),
+    };
+
+    if ("allDayDate" in input.eventWindow) {
+      requestBody.start = { date: input.eventWindow.allDayDate };
+      requestBody.end = { date: input.eventWindow.allDayEndDate };
+    } else {
+      requestBody.start = {
+        dateTime: input.eventWindow.startAtIso,
+        timeZone: input.eventWindow.timezone,
+      };
+      requestBody.end = {
+        dateTime: input.eventWindow.endAtIso,
+        timeZone: input.eventWindow.timezone,
+      };
+    }
+
+    if (input.extracted.googleEventId) {
+      const updated = await this.calendar.events.patch({
+        calendarId,
+        eventId: input.extracted.googleEventId,
+        requestBody,
+      });
+      const eventId = updated.data.id ?? input.extracted.googleEventId;
+      return { eventId, action: "updated" };
+    }
+
+    const created = await this.calendar.events.insert({ calendarId, requestBody });
+    const eventId = created.data.id;
+    if (!eventId) throw new Error("Failed to create booking event");
+    return { eventId, action: "created" };
   }
 }

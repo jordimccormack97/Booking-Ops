@@ -6,11 +6,14 @@ export type BookingRecord = {
   startAt: string;
   endAt: string;
   location: string;
+  duration: string | null;
   rateQuoted: number;
   agencyEmail: string;
   status: BookingStatus;
   approvalToken: string;
   calendarEventId: string | null;
+  gmailMessageId: string | null;
+  gmailThreadId: string | null;
   createdAt: string;
 };
 
@@ -21,6 +24,8 @@ export type ParsedBookingRequest = {
   startAt: string;
   endAt: string;
   location: string;
+  duration: string;
+  rateType: "half_day" | "full_day" | "hourly" | "flat";
   rateQuoted: number;
   agencyEmail: string;
 };

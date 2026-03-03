@@ -21,8 +21,7 @@ Services Layer
        v
 Data Layer
   |-- db/client.ts
-  |-- db/migrations/*.sql
-  |-- SQLite bookings table
+  |-- Neon Postgres (`bookings`, `extracted_rates`)
        |
        v
 Worker Layer
@@ -61,9 +60,22 @@ stateDiagram-v2
    - `bun install`
 2. Configure environment:
    - copy `.env.example` to `.env`
+   - set `DATABASE_URL` for your Neon project
    - set Google OAuth and workflow variables
+   - use a Google OAuth **Web application** client
+   - set redirect URI to `http://localhost:3000/auth/google/callback`
+   - do not use `credentials.json` for local auth; `.env` is the source of truth
 3. Run API server:
    - `bun run dev`
+   - open `http://localhost:3000/auth/google/start` to connect Google account
+   - use `http://localhost:3000/auth/google/start?force=1` only when rotating scopes/token
+   - Google redirects to `http://localhost:3000/auth/google/callback`
+   - copy logged `GOOGLE_REFRESH_TOKEN` into `.env`
+   - only store `GOOGLE_REFRESH_TOKEN` (do not persist access token or expiry fields)
+   - OAuth flow uses `access_type=offline` and `include_granted_scopes=true`
+   - `prompt=consent` is only used with `?force=1`
+   - OAuth scopes include Gmail read + Calendar read/events; if scopes changed, reconnect via `/auth/google/start`
+   - with `gmail.readonly`, sync works and leaves labels unchanged (mark-as-read is skipped)
 4. Run approval worker:
    - `bun run worker:approval`
 5. Run tests:
@@ -74,8 +86,18 @@ stateDiagram-v2
 
 ## Secret Management
 
-Backend secrets are loaded strictly from environment variables (for example `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and Google OAuth keys).
+Backend secrets are loaded strictly from environment variables (for example `DATABASE_URL` and Google OAuth keys).
 No secret files or credential values are committed to git.
+Local development uses `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from `.env` only.
+`credentials.json` is not used by runtime authentication.
+
+## Re-auth Checklist
+
+1. Start API and open `http://localhost:3000/auth/google/start`.
+2. Complete consent screen and wait for callback success page.
+3. Copy the newly logged refresh token into:
+   - `GOOGLE_REFRESH_TOKEN` in `apps/api/.env`
+4. Restart API.
 
 ## Logging Model
 

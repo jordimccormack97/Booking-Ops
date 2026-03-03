@@ -27,7 +27,8 @@ export function startEmailApprovalWatcher() {
     "is:unread subject:(Booking Hold Created) newer_than:14d",
   );
 
-  const bookingService = new BookingService(createDbClient());
+  const db = createDbClient();
+  const bookingService = new BookingService(db);
   const gmailService = new GmailApiService();
   const agentService = new AgentService(
     bookingService,
@@ -60,7 +61,7 @@ export function startEmailApprovalWatcher() {
             continue;
           }
 
-          const before = bookingService.getByApprovalToken(approvalToken);
+          const before = await bookingService.getByApprovalToken(approvalToken);
           const wasConfirmed = before?.status === "confirmed";
           const updated = await agentService.approveBooking(approvalToken);
           log("info", "worker.email_approval.message.approved", {
@@ -96,6 +97,7 @@ export function startEmailApprovalWatcher() {
   return {
     stop() {
       clearInterval(timer);
+      void db.close();
       log("info", "worker.email_approval.stopped");
     },
   };
