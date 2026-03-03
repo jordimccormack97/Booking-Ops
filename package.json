@@ -1,0 +1,13 @@
+{
+  "name": "booking-ops-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --cwd apps/web dev -- --host 127.0.0.1 --port 5174",
+    "api": "bun run --cwd apps/api dev",
+    "dev:all": "concurrently \"bun run dev\" \"bun run api\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wrangler": "^4.69.0"
+  }
+}

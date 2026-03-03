@@ -9,22 +9,46 @@ const KEY_STORAGE = "booking_ops_access_key";
 const UNLOCK_STORAGE = "booking_ops_unlocked";
 const DEFAULT_KEY = "booking-ops";
 
+function safeGetItem(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore storage errors for local-only UX
+  }
+}
+
+function safeRemoveItem(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore storage errors for local-only UX
+  }
+}
+
 export function getSavedAccessKey() {
-  return localStorage.getItem(KEY_STORAGE)?.trim() || DEFAULT_KEY;
+  return safeGetItem(KEY_STORAGE)?.trim() || DEFAULT_KEY;
 }
 
 export function setSavedAccessKey(value: string) {
-  localStorage.setItem(KEY_STORAGE, value.trim() || DEFAULT_KEY);
+  safeSetItem(KEY_STORAGE, value.trim() || DEFAULT_KEY);
 }
 
 export function clearUnlockState() {
-  localStorage.removeItem(UNLOCK_STORAGE);
+  safeRemoveItem(UNLOCK_STORAGE);
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
-  const [unlocked, setUnlocked] = useState(localStorage.getItem(UNLOCK_STORAGE) === "true");
+  const [unlocked, setUnlocked] = useState(safeGetItem(UNLOCK_STORAGE) === "true");
   const expectedKey = useMemo(() => getSavedAccessKey(), []);
 
   if (unlocked) return <>{children}</>;
@@ -59,7 +83,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 setError("Invalid access key");
                 return;
               }
-              localStorage.setItem(UNLOCK_STORAGE, "true");
+              safeSetItem(UNLOCK_STORAGE, "true");
               setUnlocked(true);
             }}
             type="button"
